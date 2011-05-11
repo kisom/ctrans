@@ -4,7 +4,14 @@
 # google translate portions are cleaned up from
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
 
+# everything else written by Kyle Isom <coder@kyleisom.net>
 
+# usage:
+#   ./ctrans.py -s filename
+#       will translate a single file
+
+
+import getopt
 import pdb
 import re
 import sys
@@ -15,6 +22,8 @@ baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
 ext     = '.en'
 
 scrub_comments  = re.compile('/\\*(.+)\\*/', re.M)
+
+source_exts     = [ 'c', 'cpp', 'cc', 'h', 'hpp', 'py', 'pl' ]
 
  
 def getSplits(text,splitLength=4500):
@@ -60,6 +69,10 @@ def translate(text,src='', to='en'):
 
 
 ### start kyle's code ###
+
+## handle C-style comments
+
+# handles /* \\w+ */ comments
 def trans_block_comment(comment):
     trans = str(comment.group())
     
@@ -70,6 +83,7 @@ def trans_block_comment(comment):
     
     return comment
 
+# handle // \w+ comments
 def trans_line_comment(comment):
     trans = str(comment.group())
     
@@ -79,6 +93,23 @@ def trans_line_comment(comment):
     
     return comment
 
+
+## handle non-C-style comments
+
+# handle an initial '#', like in perl or python or your mom
+def trans_scripting_comment(comment):
+    trans   = str(comment.group())
+    
+    if trans.startswith('#!'): return trans
+    
+    trans   = trans.lstrip('#')
+    trans   = translate(trans.strip())
+    comment = '# %s' % trans
+    
+    return comment
+
+
+# scan an individual file
 def scan_file(filename):
     new_filename    = filename + ext
     ucode           = ''
@@ -94,7 +125,21 @@ def scan_file(filename):
     tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0,
                          re.M & re.U)
     tcode       = re.sub('//(.+)', trans_line_comment, tcode, 0, re.M & re.U)
+    tcode       = re.sub('#\\s*(.+)', trans_scripting_comment, tcode, 0,
+                         re.M & re.U)
     
     writer.write(tcode)
     
-    print tcode
+    print 'translated %s to %s...' % (filename, new_filename)
+
+def scan_dir(dirname):
+   pass 
+
+if __name__ == '__main__':
+    (opts, args) = getopt.getopt(sys.argv[1:], 's:')
+    
+    for (opt, arg) in opts:
+        if opt == '-s':
+            scan_file(arg)
+    
+    
