@@ -70,6 +70,15 @@ def trans_block_comment(comment):
     
     return comment
 
+def trans_line_comment(comment):
+    trans = str(comment.group())
+    
+    trans   = trans.lstrip('//')
+    trans   = translate(trans.strip())
+    comment = '// %s' % trans
+    
+    return comment
+
 def scan_file(filename):
     new_filename    = filename + ext
     ucode           = ''
@@ -82,7 +91,9 @@ def scan_file(filename):
         print 'error on file %s, skipping...' % filename
         return None
 
-    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0, re.M)
+    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0,
+                         re.M & re.U)
+    tcode       = re.sub('//(.+)', trans_line_comment, tcode, 0, re.M & re.U)
     
     writer.write(tcode)
     
