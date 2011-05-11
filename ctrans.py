@@ -12,7 +12,7 @@
 
 
 import getopt
-import pdb
+import os
 import re
 import sys
 import urllib
@@ -133,13 +133,27 @@ def scan_file(filename):
     print 'translated %s to %s...' % (filename, new_filename)
 
 def scan_dir(dirname):
-   pass 
+    while True:
+        scanner     = os.walk(dirname, topdown=True)
+        if not scanner: break
+        else:
+            scan_list   = [ file for file in scanner[2] if is_source(file) ]
+            for file in scan_list:
+                scan_file(file)
+
+def is_source(filename):
+    extension   = re.sub('^.+\\.(\\w+)$', '\\1', filename)
+    if extension in source_exts: return True
+    
+    return False
 
 if __name__ == '__main__':
-    (opts, args) = getopt.getopt(sys.argv[1:], 's:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 's:d:')
     
     for (opt, arg) in opts:
         if opt == '-s':
             scan_file(arg)
+        if opt == '-d':
+            scan_dir(arg)
     
     
