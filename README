@@ -9,6 +9,14 @@ is a bug i don't care about fixing atm; i'm more concerned with just getting
 this working.
 
 
+USAGE:
+    ctrans.py -s <filename>
+    translates a single file
+
+    ctrans.py -d <dir>
+    translates all source files in a directory
+    
+
 TODO:
     * add directory-translating mode
     * add support for multiline C comment
