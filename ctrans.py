@@ -57,5 +57,26 @@ def translate(text,src='', to='en'):
 
 
 ### start kyle's code ###
+def trans_block_comment(comment):
+    print 'comment:', comment
+    trans   = re.sub('/\\*(.+)\\*/', '\\1', comment, 0, re.M)
+    trans   = translate(trans.strip())
+    comment = '/* %s */' % trans
+    
+    return comment
+
 def scan_file(filename):
-    new_filename = filename + ext
+    new_filename    = filename + ext
+    ucode           = ''
+    
+    try:
+        reader  = open(filename, 'rb')                  # read old source file
+        ucode   = reader.read()                         # untranslated code
+        writer  = open(new_filename, 'wb')              # write translated
+    except IOError, e:
+        print 'error on file %s, skipping...' % filename
+        return None
+
+    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0, re.M)
+    
+    print tcode
