@@ -61,11 +61,6 @@ def translate(text,src='', to='en'):
 
 ### start kyle's code ###
 def trans_block_comment(comment):
-    #trans = comment.strip()
-    pdb.set_trace()
-    print 'comment:', comment
-    print '\ttype:', type(comment)
-    print '\tdir:', dir(comment)
     trans = str(comment.group())
     
     trans   = trans.lstrip('/*')
