@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
 # translates comments in code
+
 # google translate portions are cleaned up from
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
-
 # everything else written by Kyle Isom <coder@kyleisom.net>
 
 # usage:
 #   ./ctrans.py -s filename
 #       will translate a single file
-
 
 import getopt
 import os
@@ -64,7 +63,7 @@ def translate(text,src='', to='en'):
             try:
                     retText += resp['responseData']['translatedText']
             except:
-                    raise
+                    retText += text
     return retText
 
 
@@ -133,11 +132,15 @@ def scan_file(filename):
     print 'translated %s to %s...' % (filename, new_filename)
 
 def scan_dir(dirname):
+    scanner     = os.walk(dirname, topdown=True)
+    
     while True:
-        scanner     = os.walk(dirname, topdown=True)
-        if not scanner: break
+        try:
+            scan_t = scanner.next()   # scan_t: scan tuple - (dirp, dirs, files)
+        except StopIteration:
+            break
         else:
-            scan_list   = [ file for file in scanner[2] if is_source(file) ]
+            scan_list   = [ file for file in scan_t[2] if is_source(file) ]
             for file in scan_list:
                 scan_file(file)
 
