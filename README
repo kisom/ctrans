@@ -1,0 +1,16 @@
+ctrans.py
+---------
+
+very crude source code comment translator. powered by google translate.
+
+currently handles C-style and scripting-style (i.e. '#') comments; note that
+comments formatted as '### comment' will still end up as '# comment', this
+is a bug i don't care about fixing atm; i'm more concerned with just getting
+this working.
+
+
+TODO:
+    * add directory-translating mode
+    * add support for multiline C comment
+    * verify code is clean, was hacked together in a hurry
+    
