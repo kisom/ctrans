@@ -5,6 +5,7 @@
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
 
 
+import pdb
 import re
 import sys
 import urllib
@@ -12,6 +13,8 @@ import simplejson
  
 baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
 ext     = '.en'
+
+scrub_comments  = re.compile('/\\*(.+)\\*/', re.M)
 
  
 def getSplits(text,splitLength=4500):
@@ -58,9 +61,16 @@ def translate(text,src='', to='en'):
 
 ### start kyle's code ###
 def trans_block_comment(comment):
+    #trans = comment.strip()
+    pdb.set_trace()
     print 'comment:', comment
-    trans   = re.sub('/\\*(.+)\\*/', '\\1', comment, 0, re.M)
-    trans   = translate(trans.strip())
+    print '\ttype:', type(comment)
+    print '\tdir:', dir(comment)
+    trans = str(comment.group())
+    
+    trans   = trans.lstrip('/*')
+    trans   = trans.rstrip('*/')
+    trans   = translate(trans)
     comment = '/* %s */' % trans
     
     return comment
@@ -78,5 +88,7 @@ def scan_file(filename):
         return None
 
     tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0, re.M)
+    
+    writer.write(tcode)
     
     print tcode
