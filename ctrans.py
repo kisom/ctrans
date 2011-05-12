@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-
 # translates comments in code
-
 # google translate portions are cleaned up from
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
 # everything else written by Kyle Isom <coder@kyleisom.net>
-
 # usage:
 #   ./ctrans.py -s filename
 #       will translate a single file
@@ -20,7 +17,9 @@ import simplejson
 baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
 ext     = '.en'
 
-scrub_comments  = re.compile('/\\*(.+)\\*/', re.M)
+scrub_bcomments  = re.compile('/\\*(.+)\\*/', re.M & re.U)
+scrub_lcomments  = re.compile('//(.+)', re.U & re.M)
+scrub_scomments  = re.compile('#\\s*(.+)', re.U & re.M)
 
 source_exts     = [ 'c', 'cpp', 'cc', 'h', 'hpp', 'py', 'pl' ]
 
@@ -120,12 +119,19 @@ def scan_file(filename):
     except IOError, e:
         print 'error on file %s, skipping...' % filename
         return None
+    
+    if not ucode: return None
 
-    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0,
-                         re.M & re.U)
-    tcode       = re.sub('//(.+)', trans_line_comment, tcode, 0, re.M & re.U)
-    tcode       = re.sub('#\\s*(.+)', trans_scripting_comment, tcode, 0,
-                         re.M & re.U)
+    tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
+    tcode       = scrub_lcomments.sub(trans_line_comment,  ucode)
+    tcode       = scrub_scomments.sub(trans_scripting_comment, ucode)
+    
+    # old pattern-matching code
+#    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0,
+#                         re.M & re.U)
+#    tcode       = re.sub('//(.+)', trans_line_comment, tcode, 0, re.M & re.U)
+#    tcode       = re.sub('#\\s*(.+)', trans_scripting_comment, tcode, 0,
+#                         re.M & re.U)
     
     writer.write(tcode)
     
