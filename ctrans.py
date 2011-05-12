@@ -17,9 +17,10 @@ import simplejson
 baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
 ext     = '.en'
 
-scrub_bcomments  = re.compile('/\\*(.+)\\*/', re.M & re.U)
-scrub_lcomments  = re.compile('//(.+)', re.U & re.M)
-scrub_scomments  = re.compile('#\\s*(.+)', re.U & re.M)
+scrub_bcomments = re.compile(r'/\*(.+)\*/', re.M & re.U)
+scrub_mcomments = re.compile(r'/\*[\s\S]*?\*/', re.M & re.U)
+scrub_lcomments = re.compile(r'/(.+)', re.U & re.M)
+scrub_scomments = re.compile(r'#\s*(.+)', re.U & re.M)
 
 source_exts     = [ 'c', 'cpp', 'cc', 'h', 'hpp', 'py', 'pl' ]
 
@@ -70,7 +71,7 @@ def translate(text,src='', to='en'):
 
 ## handle C-style comments
 
-# handles /* \\w+ */ comments
+# handles /* \w+ */ comments
 def trans_block_comment(comment):
     trans = str(comment.group())
     
@@ -80,6 +81,10 @@ def trans_block_comment(comment):
     comment = '/* %s */' % trans
     
     return comment
+
+# handles multiline /* \w+ */ comments
+def trans_mblk_comment(comment):
+    trans   = str(comment.group())
 
 # handle // \w+ comments
 def trans_line_comment(comment):
@@ -116,22 +121,16 @@ def scan_file(filename):
         reader  = open(filename, 'rb')                  # read old source file
         ucode   = reader.read()                         # untranslated code
         writer  = open(new_filename, 'wb')              # write translated
-    except IOError, e:
+    except IOError, e:                                  # abort on IO error
         print 'error on file %s, skipping...' % filename
         return None
     
     if not ucode: return None
 
     tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
-    tcode       = scrub_lcomments.sub(trans_line_comment,  ucode)
-    tcode       = scrub_scomments.sub(trans_scripting_comment, ucode)
-    
-    # old pattern-matching code
-#    tcode       = re.sub('/\*(.+)\*/', trans_block_comment, ucode, 0,
-#                         re.M & re.U)
-#    tcode       = re.sub('//(.+)', trans_line_comment, tcode, 0, re.M & re.U)
-#    tcode       = re.sub('#\\s*(.+)', trans_scripting_comment, tcode, 0,
-#                         re.M & re.U)
+    tcode       = scrub_mcomments.sub(trans_mblk_comment,  tcode)
+    tcode       = scrub_lcomments.sub(trans_line_comment,  tcode)
+    tcode       = scrub_scomments.sub(trans_scripting_comment, tcode)
     
     writer.write(tcode)
     
