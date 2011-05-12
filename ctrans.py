@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # translates comments in code
 # google translate portions are cleaned up from
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
@@ -15,6 +16,7 @@ import urllib
 import simplejson
  
 baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
+lang    = 'en'
 ext     = '.en'
 
 scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
@@ -25,7 +27,7 @@ source_exts     = { 'c-style':[ 'c', 'cpp', 'cc', 'h', 'hpp' ],
                     'script': [ 'py', 'pl', 'rb' ] }
 
  
-def get_splits(text,splitLength=4500):
+def get_splits(text, splitLength = 4500):
     """
     Translate Api has a limit on length of text(4500 characters) that can be
     translated at once, 
@@ -35,7 +37,7 @@ def get_splits(text,splitLength=4500):
             for index in xrange(0, len(text), splitLength))
  
  
-def translate(text,src='', to='en'):
+def translate(text, src = '', to = lang):
     """
     A Python Wrapper for Google AJAX Language API:
     
@@ -73,33 +75,18 @@ def translate(text,src='', to='en'):
 
 # handles /* \w+ */ comments
 def trans_block_comment(comment):
+    # comment should be arrive as a re.Match object, need to grab the group
     trans = str(comment.group())
     trans = trans.split('\n')
-    #
-    #for i in range(len(trans)):
-    #    line = trans[i]
-    #    
-    #    c_begin = False
-    #    c_end   = False
-    #
-    #    if line.startswith('/*'):
-    #        c_begin     = True
-    #        line[i]     = trans.lstrip('/*')
-    #    elif line.endswith('*/'):
-    #        c_end       = True
-    #        line[1]     = trans.rstrip('*/')
-    #
-    #    trans
-    #trans   = translate(trans)
-    #comment = '/* %s */' % trans
     
+    # translate each line and compensate for the fact that gtrans eats your
+    # formatting
     trans   = [ translate(line) for line in trans ]
     trans   = [ line.replace('/ * ', '/* ') for line in trans ]
     trans   = [ line.replace(' * /', ' */') for line in trans ]
-    comment = '\n'.join(trans)
+    comment = u'\n'.join(trans)
     
-    print 'comment:', comment
-    
+    # here's your stupid translation    
     return comment
 
 # handle // \w+ comments
@@ -108,8 +95,7 @@ def trans_line_comment(comment):
     
     trans   = trans.lstrip('//')
     trans   = translate(trans.strip())
-    comment = '// %s' % trans
-    print comment
+    comment = u'// %s' % trans
     
     return comment
 
@@ -129,7 +115,10 @@ def trans_scripting_comment(comment):
     return comment
 
 
-# scan an individual file
+### processing code ###
+# the following functions handle regexes, file tree walking and file I/O
+
+# translate an individual file
 def scan_file(filename):
     new_filename    = filename + ext
     
@@ -139,6 +128,7 @@ def scan_file(filename):
         writer  = open(new_filename, 'wb')              # write translated
     except IOError, e:                                  # abort on IO error
         print 'error on file %s, skipping...' % filename
+        print '\t(error returned was %s)' % str(e)
         return None
     
     if not ucode: return None
@@ -153,6 +143,7 @@ def scan_file(filename):
     
     print 'translated %s to %s...' % (filename, new_filename)
 
+# look through a directory
 def scan_dir(dirname):
     scanner     = os.walk(dirname, topdown=True)
     
@@ -162,9 +153,10 @@ def scan_dir(dirname):
         except StopIteration:
             break
         else:
-            scan_list   = [ file for file in scan_t[2] if is_source(file) ]
+            scan_list   = [ file for file in scan_t[2]
+                           if is_source(file) or is_script(file) ]
             for file in scan_list:
-                scan_file(file)
+                scan_file(os.path.join(scan_t[0], file))
 
 # detect c-style comments
 def is_source(filename):
@@ -180,8 +172,9 @@ def is_script(filename):
     
     return False
 
+##### start main code #####
 if __name__ == '__main__':
-    (opts, args) = getopt.getopt(sys.argv[1:], 's:d:')
+    (opts, args) = getopt.getopt(sys.argv[1:], 's:d:l:')
     
     for (opt, arg) in opts:
         if opt == '-s':
