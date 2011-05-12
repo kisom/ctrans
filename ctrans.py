@@ -17,15 +17,15 @@ import simplejson
 baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
 ext     = '.en'
 
-scrub_bcomments = re.compile(r'/\*(.+)\*/', re.M & re.U)
-scrub_mcomments = re.compile(r'/\*[\s\S]*?\*/', re.M & re.U)
-scrub_lcomments = re.compile(r'/(.+)', re.U & re.M)
+scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
+scrub_lcomments = re.compile(r'//(.+)', re.U & re.M)
 scrub_scomments = re.compile(r'#\s*(.+)', re.U & re.M)
 
-source_exts     = [ 'c', 'cpp', 'cc', 'h', 'hpp', 'py', 'pl' ]
+source_exts     = { 'c-style':[ 'c', 'cpp', 'cc', 'h', 'hpp' ],
+                    'script': [ 'py', 'pl', 'rb' ] }
 
  
-def getSplits(text,splitLength=4500):
+def get_splits(text,splitLength=4500):
     """
     Translate Api has a limit on length of text(4500 characters) that can be
     translated at once, 
@@ -52,10 +52,10 @@ def translate(text,src='', to='en'):
     
     retText = ''
     
-    for text in getSplits(text):
+    for text in get_splits(text):
             params['q'] = text
             
-            resp=simplejson.load(
+            resp = simplejson.load(
                                 urllib.urlopen('%s' % (baseUrl),
                                 data = urllib.urlencode(params))
                                 )
@@ -74,17 +74,33 @@ def translate(text,src='', to='en'):
 # handles /* \w+ */ comments
 def trans_block_comment(comment):
     trans = str(comment.group())
+    trans = trans.split('\n')
+    #
+    #for i in range(len(trans)):
+    #    line = trans[i]
+    #    
+    #    c_begin = False
+    #    c_end   = False
+    #
+    #    if line.startswith('/*'):
+    #        c_begin     = True
+    #        line[i]     = trans.lstrip('/*')
+    #    elif line.endswith('*/'):
+    #        c_end       = True
+    #        line[1]     = trans.rstrip('*/')
+    #
+    #    trans
+    #trans   = translate(trans)
+    #comment = '/* %s */' % trans
     
-    trans   = trans.lstrip('/*')
-    trans   = trans.rstrip('*/')
-    trans   = translate(trans)
-    comment = '/* %s */' % trans
+    trans   = [ translate(line) for line in trans ]
+    trans   = [ line.replace('/ * ', '/* ') for line in trans ]
+    trans   = [ line.replace(' * /', ' */') for line in trans ]
+    comment = '\n'.join(trans)
+    
+    print 'comment:', comment
     
     return comment
-
-# handles multiline /* \w+ */ comments
-def trans_mblk_comment(comment):
-    trans   = str(comment.group())
 
 # handle // \w+ comments
 def trans_line_comment(comment):
@@ -93,6 +109,7 @@ def trans_line_comment(comment):
     trans   = trans.lstrip('//')
     trans   = translate(trans.strip())
     comment = '// %s' % trans
+    print comment
     
     return comment
 
@@ -115,7 +132,6 @@ def trans_scripting_comment(comment):
 # scan an individual file
 def scan_file(filename):
     new_filename    = filename + ext
-    ucode           = ''
     
     try:
         reader  = open(filename, 'rb')                  # read old source file
@@ -127,10 +143,11 @@ def scan_file(filename):
     
     if not ucode: return None
 
-    tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
-    tcode       = scrub_mcomments.sub(trans_mblk_comment,  tcode)
-    tcode       = scrub_lcomments.sub(trans_line_comment,  tcode)
-    tcode       = scrub_scomments.sub(trans_scripting_comment, tcode)
+    if   is_source(filename):
+        tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
+        tcode       = scrub_lcomments.sub(trans_line_comment,  tcode)
+    elif is_script(filename):
+        tcode       = scrub_scomments.sub(trans_scripting_comment, ucode)
     
     writer.write(tcode)
     
@@ -149,9 +166,17 @@ def scan_dir(dirname):
             for file in scan_list:
                 scan_file(file)
 
+# detect c-style comments
 def is_source(filename):
     extension   = re.sub('^.+\\.(\\w+)$', '\\1', filename)
-    if extension in source_exts: return True
+    if extension in source_exts['c-style']: return True
+    
+    return False
+
+# detect script-style comments
+def is_script(filename):
+    extension   = re.sub('^.+\\.(\\w+)$', '\\1', filename)
+    if extension in source_exts['script']: return True
     
     return False
 
