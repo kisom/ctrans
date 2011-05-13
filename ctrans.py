@@ -59,6 +59,8 @@ def translate(text, src = '', to = lang):
     retText = ''
     
     for text in get_splits(text):
+            print 'translation requested...',
+            sys.stdout.flush()
             params['q'] = text
             
             resp = simplejson.load(
@@ -70,6 +72,7 @@ def translate(text, src = '', to = lang):
                     retText += resp['responseData']['translatedText']
             except:
                     retText += text
+            print ' received!'
     return retText
 
 
@@ -79,6 +82,7 @@ def translate(text, src = '', to = lang):
 
 # handles /* \w+ */ comments
 def trans_block_comment(comment):
+    print '/*'
     # comment should be arrive as a re.Match object, need to grab the group
     trans = str(comment.group())
     trans = trans.split('\n')
@@ -95,6 +99,7 @@ def trans_block_comment(comment):
 
 # handle // \w+ comments
 def trans_line_comment(comment):
+    print '//'
     trans = str(comment.group())
     
     trans   = trans.lstrip('//')
@@ -127,9 +132,12 @@ def scan_file(filename):
     new_filename    = filename + ext
     
     try:
-        reader  = open(filename, 'rb')                  # read old source file
+        reader  = codecs.open(filename, 'r',            # read old source file
+                              encoding='utf-8', errors = 'replace')      
         ucode   = reader.read()                         # untranslated code
-        writer  = open(new_filename, 'wb')              # write translated
+        writer  = codecs.open(new_filename, 'w',        # write translated
+                              encoding='utf-8')
+        reader.close()
     except IOError, e:                                  # abort on IO error
         print 'error on file %s, skipping...' % filename
         print '\t(error returned was %s)' % str(e)
@@ -138,6 +146,7 @@ def scan_file(filename):
     if not ucode: return None
 
     if   is_source(filename):
+        print 'c-style'
         tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
         tcode       = scrub_lcomments.sub(trans_line_comment,  tcode)
     elif is_script(filename):
@@ -150,8 +159,7 @@ def scan_file(filename):
 # look through a directory
 def scan_dir(dirname):
     scanner     = os.walk(dirname, topdown=True)
-    files       = [ ]
-    pool        = multiprocessing.Pool(processes = num_proc)
+    pool        = multiprocessing.Pool(processes = num_procs)
     
     while True:
         try:
