@@ -8,16 +8,20 @@
 #   ./ctrans.py -s filename
 #       will translate a single file
 
+import codecs
 import getopt
+import multiprocessing
 import os
 import re
 import sys
 import urllib
 import simplejson
  
-baseUrl = "http://ajax.googleapis.com/ajax/services/language/translate"
-lang    = 'en'
-ext     = '.en'
+baseUrl     = "http://ajax.googleapis.com/ajax/services/language/translate"
+lang        = 'en'
+ext         = '.en'
+num_procs   =   8                                   # number of concurrent
+                                                    # processes
 
 scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
 scrub_lcomments = re.compile(r'//(.+)', re.U & re.M)
@@ -146,6 +150,8 @@ def scan_file(filename):
 # look through a directory
 def scan_dir(dirname):
     scanner     = os.walk(dirname, topdown=True)
+    files       = [ ]
+    pool        = multiprocessing.Pool(processes = num_proc)
     
     while True:
         try:
@@ -153,10 +159,10 @@ def scan_dir(dirname):
         except StopIteration:
             break
         else:
-            scan_list   = [ file for file in scan_t[2]
+            scan_list   = [ os.path.join(scan_t[0], file) for file in scan_t[2]
                            if is_source(file) or is_script(file) ]
-            for file in scan_list:
-                scan_file(os.path.join(scan_t[0], file))
+
+        pool.map(scan_file, scan_list)
 
 # detect c-style comments
 def is_source(filename):
