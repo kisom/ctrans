@@ -8,6 +8,7 @@
 #   ./ctrans.py -s filename
 #       will translate a single file
 
+
 import codecs
 import getopt
 import multiprocessing
@@ -22,6 +23,10 @@ lang        = 'en'
 ext         = '.en'
 num_procs   =   8                                   # number of concurrent
                                                     # processes
+
+encodeas    = 'koi8_u'                              # input file type
+decodeas    = 'utf-8'                               # output file type
+cerr        = 'strict'                              # what do with codec errors
 
 scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
 scrub_lcomments = re.compile(r'//(.+)', re.U & re.M)
@@ -133,10 +138,10 @@ def scan_file(filename):
     
     try:
         reader  = codecs.open(filename, 'r',            # read old source file
-                              encoding='utf-8', errors = 'replace')      
+                              encoding=encodeas, errors = 'replace')      
         ucode   = reader.read()                         # untranslated code
         writer  = codecs.open(new_filename, 'w',        # write translated
-                              encoding='utf-8')
+                              encoding=decodeas)
         reader.close()
     except IOError, e:                                  # abort on IO error
         print 'error on file %s, skipping...' % filename
@@ -152,7 +157,7 @@ def scan_file(filename):
     elif is_script(filename):
         tcode       = scrub_scomments.sub(trans_scripting_comment, ucode)
     
-    writer.write(tcode)
+    writer.write(tcode.decode('utf-8'))
     
     print 'translated %s to %s...' % (filename, new_filename)
 
@@ -160,6 +165,7 @@ def scan_file(filename):
 def scan_dir(dirname):
     scanner     = os.walk(dirname, topdown=True)
     pool        = multiprocessing.Pool(processes = num_procs)
+    file_list   = []
     
     while True:
         try:
@@ -167,11 +173,14 @@ def scan_dir(dirname):
         except StopIteration:
             break
         else:
-            scan_list   = [ os.path.join(scan_t[0], file) for file in scan_t[2]
-                           if is_source(file) or is_script(file) ]
+            for f in scan_t[2]:
+                file_list.append(os.path.join(scan_t[0]), f)
+                
+    scan_list   = [ os.path.join(scan_t[0], file) for file in file_list
+                    if is_source(file) or is_script(file) ]
 
-        pool.map(scan_file, scan_list)
-
+    pool.map(scan_file, scan_list)
+        
 # detect c-style comments
 def is_source(filename):
     extension   = re.sub('^.+\\.(\\w+)$', '\\1', filename)
