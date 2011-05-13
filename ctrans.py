@@ -84,7 +84,7 @@ def translate(text, src = '', to = lang):
 def trans_block_comment(comment):
     print '/*'
     # comment should be arrive as a re.Match object, need to grab the group
-    trans = str(comment.group())
+    trans = unicode(comment.group())
     trans = trans.split('\n')
     
     # translate each line and compensate for the fact that gtrans eats your
@@ -100,7 +100,7 @@ def trans_block_comment(comment):
 # handle // \w+ comments
 def trans_line_comment(comment):
     print '//'
-    trans = str(comment.group())
+    trans = unicode(comment.group())
     
     trans   = trans.lstrip('//')
     trans   = translate(trans.strip())
@@ -113,7 +113,7 @@ def trans_line_comment(comment):
 
 # handle an initial '#', like in perl or python or your mom
 def trans_scripting_comment(comment):
-    trans   = str(comment.group())
+    trans   = unicode(comment.group())
     
     if trans.startswith('#!'): return trans
     
