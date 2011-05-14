@@ -30,7 +30,7 @@ lang        = 'en'
 trace       = False                                 # enable debugging output
 ext         = '.en'                                 # extension of translated
                                                     # files
-num_procs   =   8                                   # number of concurrent
+num_procs   =   32                                  # number of concurrent
                                                     # processes
                                                     
 # coding vars                                                    
@@ -153,7 +153,7 @@ def trans_scripting_comment(comment):
 # the encoding is low enough to not cause a performance hit and prevents the
 # code from having to involve locking or shared memory.
 def guess_encoding(filename, detection_threshold = 0.8, return_dict = False):
-    if trace: print '[+] attemtping to autodetect coding for %s' % filename
+    if trace: print '[+] attempting to autodetect coding for %s' % filename
     try:
         f = open(filename, 'rb')
         guess = chardet.detect(f.read())
@@ -254,9 +254,16 @@ def scan_file(filename):
 
 # look through a directory
 def scan_dir(dirname):
-    scanner     = os.walk(dirname, topdown=True)
-    pool        = multiprocessing.Pool(processes = num_procs)
-    file_list   = []
+    global autodetect                   # used to tweak better file encoding
+    global encodeas                     # scans
+    
+    scanner         = os.walk(dirname, topdown=True)
+    pool            = multiprocessing.Pool(processes = num_procs)
+    file_list       = []
+    
+    if autodetect:
+        encodeas    = guess_dir(dirname)
+        autodetect  = False
     
     while True:
         try:
