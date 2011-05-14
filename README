@@ -16,6 +16,19 @@ USAGE:
     ctrans.py -d <dir>
     translates all source files in a directory
     
+    other flags:
+        -e      set input file encoding
+        -o      set output file encoding
+        -t      set trace (debugging output)
+
+
+DECODE/ENCODE NOTES:
+    the default encoding and decoding is utf-8. specifying 'auto' for the
+    decoding will attempt to guess the file's encoding. this is at best a guess,
+    and at worst completely wrong.
+    
+    encoding is not a trivial matter, and there are a million ways a file might
+    be encoded. 
 
 TODO:
     * add directory-translating mode

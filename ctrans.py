@@ -9,6 +9,7 @@
 #       will translate a single file
 
 
+import chardet
 import codecs
 import getopt
 import multiprocessing
@@ -17,21 +18,33 @@ import re
 import sys
 import urllib
 import simplejson
+
+
+### globals ###
  
+# variables from halotis' code
 baseUrl     = "http://ajax.googleapis.com/ajax/services/language/translate"
 lang        = 'en'
-ext         = '.en'
+
+# misc vars
+trace       = False                                 # enable debugging output
+ext         = '.en'                                 # extension of translated
+                                                    # files
 num_procs   =   8                                   # number of concurrent
                                                     # processes
-
-encodeas    = 'koi8_u'                              # input file type
+                                                    
+# coding vars                                                    
+encodeas    = 'utf-8'                               # input file type
 decodeas    = 'utf-8'                               # output file type
 cerr        = 'strict'                              # what do with codec errors
+autodetect  = False                                 # autodetect file encoding
 
+# regexes for the different comment types
 scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
 scrub_lcomments = re.compile(r'//(.+)', re.U & re.M)
 scrub_scomments = re.compile(r'#\s*(.+)', re.U & re.M)
 
+# extensions for valid source files
 source_exts     = { 'c-style':[ 'c', 'cpp', 'cc', 'h', 'hpp' ],
                     'script': [ 'py', 'pl', 'rb' ] }
 
@@ -50,10 +63,10 @@ def translate(text, src = '', to = lang):
     """
     A Python Wrapper for Google AJAX Language API:
     
-        * Uses Google Language Detection, in cases source language is not provided
-        with the source text
-        * Splits up text if it's longer then 4500 characters, as a limit put up
-        by the API
+        * Uses Google Language Detection, in cases source language is not
+        provided with the source text
+        * Splits up text if it's longer then 4500 characters, as a limit put
+        up by the API
     """
  
     params = ( {
@@ -64,7 +77,7 @@ def translate(text, src = '', to = lang):
     retText = ''
     
     for text in get_splits(text):
-            print 'translation requested...',
+            print '[+] translation requested...'
             sys.stdout.flush()
             params['q'] = text
             
@@ -77,7 +90,7 @@ def translate(text, src = '', to = lang):
                     retText += resp['responseData']['translatedText']
             except:
                     retText += text
-            print ' received!'
+            print '\treceived!'
     return retText
 
 
@@ -132,26 +145,77 @@ def trans_scripting_comment(comment):
 ### processing code ###
 # the following functions handle regexes, file tree walking and file I/O
 
+# guess the encoding on a file
+#   returns a string with the encoding if it is confident in its guess,
+#       False otherwise
+#   detection threshhold is confidence required to return an encoding
+#
+# design note: returns a string instead of globally modifying the encodeas var
+# to support concurrency - the memory of duplicating a short string containing
+# the encoding is low enough to not cause a performance hit and prevents the
+# code from having to involve locking or shared memory.
+def guess_encoding(filename, detection_threshold = 0.8):
+    print '[+] attemtping to autodetect coding for %s' % filename
+    try:
+        f = open(filename, 'rb')
+        guess = chardet.detect(f.read())
+        f.close()
+    except IOError, e:
+        print '[!] error on file %s, skipping...' % filename
+        print '\t(error returned was %s)' % str(e)
+        return False
+    
+    confidence = '%0.1f' % guess['confidence']
+    confidence = float(confidence)
+
+    if confidence < detection_threshold:
+        print '[!] too low of a confidence (%f) to guess coding for %s' % (
+            guess['confidence'],
+            filename
+        )
+        return False
+    else:
+        print '[+] detected coding %s for file %s (confidence: %0.2f)' % (
+                                                    guess['encoding'],
+                                                    filename,
+                                                    guess['confidence']
+                                                    )
+        return guess['encoding']
+    
+    
 # translate an individual file
 def scan_file(filename):
     new_filename    = filename + ext
     
+    # the reason we use a local variable for the encoding based on either
+    # the guess_encoding() function or a copy of the encodeas global is
+    # detailed more in the design note in the comments for guess_encoding -
+    # the tl;dr is it solves some concurrency issues without incurring any
+    # major penalties.
+    if autodetect:
+        encoding = guess_encoding(filename)
+        if not encoding:
+            print '[!] could not reliably determine the encoding for %s' % filename
+            print 'so i am aborting!'
+            return
+    else:
+        encoding = encodeas
+    
     try:
         reader  = codecs.open(filename, 'r',            # read old source file
-                              encoding=encodeas, errors = 'replace')      
+                              encoding=encoding, errors = 'replace')      
         ucode   = reader.read()                         # untranslated code
         writer  = codecs.open(new_filename, 'w',        # write translated
                               encoding=decodeas)
         reader.close()
     except IOError, e:                                  # abort on IO error
-        print 'error on file %s, skipping...' % filename
+        print '[!] error on file %s, skipping...' % filename
         print '\t(error returned was %s)' % str(e)
         return None
     
     if not ucode: return None
 
     if   is_source(filename):
-        print 'c-style'
         tcode       = scrub_bcomments.sub(trans_block_comment, ucode)
         tcode       = scrub_lcomments.sub(trans_line_comment,  tcode)
     elif is_script(filename):
@@ -159,7 +223,7 @@ def scan_file(filename):
     
     writer.write(tcode.decode('utf-8'))
     
-    print 'translated %s to %s...' % (filename, new_filename)
+    print '[+] translated %s to %s...' % (filename, new_filename)
 
 # look through a directory
 def scan_dir(dirname):
@@ -169,17 +233,21 @@ def scan_dir(dirname):
     
     while True:
         try:
-            scan_t = scanner.next()   # scan_t: scan tuple - (dirp, dirs, files)
+            scan_t = scanner.next()   # scan_t: (dirp, dirs, files)
         except StopIteration:
             break
         else:
             for f in scan_t[2]:
-                file_list.append(os.path.join(scan_t[0]), f)
+                file_list.append(os.path.join(scan_t[0], f))
                 
     scan_list   = [ os.path.join(scan_t[0], file) for file in file_list
                     if is_source(file) or is_script(file) ]
+    
+    dev = 1
 
     pool.map(scan_file, scan_list)
+    pool.close()
+    pool.join()
         
 # detect c-style comments
 def is_source(filename):
@@ -197,12 +265,31 @@ def is_script(filename):
 
 ##### start main code #####
 if __name__ == '__main__':
-    (opts, args) = getopt.getopt(sys.argv[1:], 's:d:l:')
+    (opts, args)    = getopt.getopt(sys.argv[1:], 's:d:e:o:t')
+    dir_mode        = False
+    target          = None
     
     for (opt, arg) in opts:
         if opt == '-s':
-            scan_file(arg)
+            dir_mode    = False
+            target      = arg
         if opt == '-d':
-            scan_dir(arg)
+            dir_mode    = True
+            target      = arg
+        if opt == '-e':
+            if not arg == 'auto':
+                encodeas = arg
+            else:
+                print 'auto-detect'
+                autodetect = True
+        if opt == '-o':
+            decodeas = arg
+            
+    
+    if dir_mode:
+        scan_dir(target)
+    else:
+        scan_file(target)
+            
     
     
