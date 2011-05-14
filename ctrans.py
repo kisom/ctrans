@@ -77,7 +77,7 @@ def translate(text, src = '', to = lang):
     retText = ''
     
     for text in get_splits(text):
-            print '[+] translation requested...'
+            if trace: print '[+] translation requested...'
             sys.stdout.flush()
             params['q'] = text
             
@@ -90,7 +90,7 @@ def translate(text, src = '', to = lang):
                     retText += resp['responseData']['translatedText']
             except:
                     retText += text
-            print '\treceived!'
+            if trace: print '\treceived!'
     return retText
 
 
@@ -100,7 +100,6 @@ def translate(text, src = '', to = lang):
 
 # handles /* \w+ */ comments
 def trans_block_comment(comment):
-    print '/*'
     # comment should be arrive as a re.Match object, need to grab the group
     trans = unicode(comment.group())
     trans = trans.split('\n')
@@ -117,7 +116,6 @@ def trans_block_comment(comment):
 
 # handle // \w+ comments
 def trans_line_comment(comment):
-    print '//'
     trans = unicode(comment.group())
     
     trans   = trans.lstrip('//')
@@ -195,8 +193,8 @@ def scan_file(filename):
     if autodetect:
         encoding = guess_encoding(filename)
         if not encoding:
-            print '[!] could not reliably determine the encoding for %s' % filename
-            print 'so i am aborting!'
+            print '[!] could not reliably determine encoding for %s' % filename
+            print '\taborting!'
             return
     else:
         encoding = encodeas
@@ -280,7 +278,6 @@ if __name__ == '__main__':
             if not arg == 'auto':
                 encodeas = arg
             else:
-                print 'auto-detect'
                 autodetect = True
         if opt == '-o':
             decodeas = arg
