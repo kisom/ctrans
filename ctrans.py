@@ -152,7 +152,7 @@ def trans_scripting_comment(comment):
 # to support concurrency - the memory of duplicating a short string containing
 # the encoding is low enough to not cause a performance hit and prevents the
 # code from having to involve locking or shared memory.
-def guess_encoding(filename, detection_threshold = 0.8):
+def guess_encoding(filename, detection_threshold = 0.8, return_dict = False):
     print '[+] attemtping to autodetect coding for %s' % filename
     try:
         f = open(filename, 'rb')
@@ -161,7 +161,7 @@ def guess_encoding(filename, detection_threshold = 0.8):
     except IOError, e:
         print '[!] error on file %s, skipping...' % filename
         print '\t(error returned was %s)' % str(e)
-        return False
+        if not return_tuple: return False
     
     confidence = '%0.1f' % guess['confidence']
     confidence = float(confidence)
@@ -178,8 +178,37 @@ def guess_encoding(filename, detection_threshold = 0.8):
                                                     filename,
                                                     guess['confidence']
                                                     )
-        return guess['encoding']
+        return guess['encoding'] if not return_dict else {
+            'encoding': guess['encoding'],
+            'confidence': guess['confidence'] }
     
+    
+# attempt to guess dir
+def guess_dir(dir):
+    walk        = os.walk(dir)
+    codes       = { }
+    codec_scan  = [ ]
+    
+    while True:
+        try:
+            (dirp, dirs, files)     = walk.next()
+        except StopIteration, e:
+            break
+        else:
+            codec_scan.extend([ os.path.join(dirp, file) for file in files
+                                if is_source(os.path.join(dirp, file))
+                                or is_script(os.path.join(dirp, file)) ])
+    for file in codec_scan:
+        guess = guess_encoding(file, return_dict=True)
+        encoding, confidence = guess['encoding'], guess['confidence']
+        
+        if encoding in codes:
+            codes[encoding] += confidence
+        else:
+            codes[encoding] = confidence
+            
+    return list(sorted(codes, key=lambda x: codes[x], reverse=True))[0]
+
     
 # translate an individual file
 def scan_file(filename):
