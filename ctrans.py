@@ -173,7 +173,8 @@ def guess_encoding(filename, detection_threshold = 0.8, return_dict = False):
         )
         return False
     else:
-        if trace: print '[+] detected coding %s for file %s (confidence: %0.2f)' % (
+        if trace:
+            print '[+] detected coding %s for file %s (confidence: %0.2f)' % (
                                                     guess['encoding'],
                                                     filename,
                                                     guess['confidence']
