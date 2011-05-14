@@ -153,13 +153,13 @@ def trans_scripting_comment(comment):
 # the encoding is low enough to not cause a performance hit and prevents the
 # code from having to involve locking or shared memory.
 def guess_encoding(filename, detection_threshold = 0.8, return_dict = False):
-    print '[+] attemtping to autodetect coding for %s' % filename
+    if trace: print '[+] attemtping to autodetect coding for %s' % filename
     try:
         f = open(filename, 'rb')
         guess = chardet.detect(f.read())
         f.close()
     except IOError, e:
-        print '[!] error on file %s, skipping...' % filename
+        if trace: print '[!] error on file %s, skipping...' % filename
         print '\t(error returned was %s)' % str(e)
         if not return_tuple: return False
     
@@ -173,7 +173,7 @@ def guess_encoding(filename, detection_threshold = 0.8, return_dict = False):
         )
         return False
     else:
-        print '[+] detected coding %s for file %s (confidence: %0.2f)' % (
+        if trace: print '[+] detected coding %s for file %s (confidence: %0.2f)' % (
                                                     guess['encoding'],
                                                     filename,
                                                     guess['confidence']
