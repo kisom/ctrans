@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# using Python 2.7!
 # translates comments in code
 # google translate portions are cleaned up from
 #   http://www.halotis.com/2009/09/15/google-translate-api-python-script/
@@ -7,6 +8,14 @@
 # usage:
 #   ./ctrans.py -s filename
 #       will translate a single file
+
+# Updated 2020-03-02 by William Cable to use Google Cloud Translation 
+#   because the old ajax api wasn't working anymore
+
+# Setup Cloud Console project and download credentials
+#   https://cloud.google.com/translate/docs/basic/setup-basic
+# set path to credentials:
+#   $env:GOOGLE_APPLICATION_CREDENTIALS="B:\AWI\Python\ctrans\Python Translate-50994b9b6934.json"
 
 
 import chardet
@@ -19,12 +28,15 @@ import sys
 import urllib
 import simplejson
 
+from google.cloud import translate_v2 as G_translate
+translate_client = G_translate.Client()
+
 
 ### globals ###
  
 # variables from halotis' code
-baseUrl     = "http://ajax.googleapis.com/ajax/services/language/translate"
-lang        = 'en'
+lang        = 'en'  #Target Language
+lang_src    = ''    #Source Language, leave empty for auto-detect
 
 # misc vars
 trace       = False                                 # enable debugging output
@@ -37,7 +49,7 @@ num_procs   =   32                                  # number of concurrent
 encodeas    = 'utf-8'                               # input file type
 decodeas    = 'utf-8'                               # output file type
 cerr        = 'strict'                              # what do with codec errors
-autodetect  = False                                 # autodetect file encoding
+autodetect  = True                                 # autodetect file encoding
 
 # regexes for the different comment types
 scrub_bcomments = re.compile(r'/\*([\s\S]+?)\*/', re.M & re.U)
@@ -58,41 +70,27 @@ def get_splits(text, splitLength = 4500):
     return (text[index:index + splitLength]
             for index in xrange(0, len(text), splitLength))
  
- 
-def translate(text, src = '', to = lang):
+
+def translate(text, target = lang, source = lang_src):
     """
-    A Python Wrapper for Google AJAX Language API:
-    
-        * Uses Google Language Detection, in cases source language is not
-        provided with the source text
-        * Splits up text if it's longer then 4500 characters, as a limit put
-        up by the API
+    Translate using Googles API
     """
- 
-    params = ( {
-                'langpair': '%s|%s' % (src, to),
-                'v': '1.0'
-            } )
-    
+
     retText = ''
     
     for text in get_splits(text):
             if trace: print '[+] translation requested...'
             sys.stdout.flush()
-            params['q'] = text
             
-            resp = simplejson.load(
-                                urllib.urlopen('%s' % (baseUrl),
-                                data = urllib.urlencode(params))
-                                )
+            resp = translate_client.translate(
+                text, target_language=target, source_language=source)
             
             try:
-                    retText += resp['responseData']['translatedText']
+                    retText += resp['translatedText']
             except:
-                    retText += text
+                    retText += text.decode('')
             if trace: print '\treceived!'
     return retText
-
 
 ### start kyle's code ###
 
@@ -117,7 +115,7 @@ def trans_block_comment(comment):
 # handle // \w+ comments
 def trans_line_comment(comment):
     trans = unicode(comment.group())
-    
+    if trace: print trans.encode('utf-8')
     trans   = trans.lstrip('//')
     trans   = translate(trans.strip())
     comment = u'// %s' % trans
@@ -249,7 +247,7 @@ def scan_file(filename):
     elif is_script(filename):
         tcode       = scrub_scomments.sub(trans_scripting_comment, ucode)
     
-    writer.write(tcode.decode('utf-8'))
+    writer.write(tcode)
     
     print '[+] translated %s to %s...' % (filename, new_filename)
 
